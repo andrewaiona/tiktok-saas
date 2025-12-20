@@ -54,3 +54,11 @@ model BrandSettings {
   ugcAccountId      String?  // UGC API account ID for posting comments
   updatedAt         DateTime @updatedAt
 }
+
+model WorkflowSettings {
+  id              Int      @id @default(autoincrement())
+  workflowType    String   @unique // 'general', 'competitor', 'brand'
+  relevancyPrompt String
+  commentPrompt   String
+  lastUpdated     DateTime @updatedAt
+}

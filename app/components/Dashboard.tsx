@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import { addTarget, removeTarget, runScrape, analyzeVideo, analyzeAllVideos, generateCommentForVideo, generateCommentsForAllRelevant, postCommentToVideo } from '../actions';
-import { Trash2, Hash, User, Plus, Loader2, Play, Eye, MessageCircle, Share2, Heart, ExternalLink, Sparkles, CheckCircle2, XCircle, Send, AlertCircle } from 'lucide-react';
+import { Trash2, Hash, User, Plus, Loader2, Play, Eye, MessageCircle, Share2, Heart, ExternalLink, Sparkles, CheckCircle2, XCircle, Send, AlertCircle, Settings2 } from 'lucide-react';
 import Image from 'next/image';
 import WorkflowTimeline from './WorkflowTimeline';
+import PromptSettings from './PromptSettings';
 
 type Target = {
     id: number;
@@ -51,6 +52,7 @@ export default function Dashboard({ initialTargets, initialVideos }: {
     const [targets, setTargets] = useState<Target[]>(initialTargets);
     const [videos, setVideos] = useState<Video[]>(initialVideos);
     const [activeWorkflow, setActiveWorkflow] = useState<'general' | 'competitor' | 'brand'>('general');
+    const [showPromptSettings, setShowPromptSettings] = useState(false);
 
     // Filter targets and videos by active workflow
     const filteredTargets = targets.filter(t => t.workflowType === activeWorkflow);
@@ -220,35 +222,45 @@ export default function Dashboard({ initialTargets, initialVideos }: {
             </div>
 
             {/* Workflow Type Tabs */}
-            <div className="flex gap-2 border-b border-zinc-800">
+            <div className="flex items-center justify-between">
+                <div className="flex bg-zinc-900/50 p-1 rounded-xl border border-zinc-800/50">
+                    <button
+                        onClick={() => setActiveWorkflow('general')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeWorkflow === 'general' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                            }`}
+                    >
+                        General Relevant Videos
+                    </button>
+                    <button
+                        onClick={() => setActiveWorkflow('competitor')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeWorkflow === 'competitor' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                            }`}
+                    >
+                        Competitor Accounts
+                    </button>
+                    <button
+                        onClick={() => setActiveWorkflow('brand')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeWorkflow === 'brand' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
+                            }`}
+                    >
+                        Your Brand Accounts
+                    </button>
+                </div>
+
                 <button
-                    onClick={() => setActiveWorkflow('general')}
-                    className={`px-4 py-2 font-medium transition-colors ${activeWorkflow === 'general'
-                        ? 'text-violet-400 border-b-2 border-violet-500'
-                        : 'text-zinc-500 hover:text-zinc-300'
-                        }`}
+                    onClick={() => setShowPromptSettings(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-zinc-400 hover:text-violet-400 text-sm font-medium transition-colors hover:bg-violet-500/10 rounded-lg border border-transparent hover:border-violet-500/20"
                 >
-                    General Relevant Videos
-                </button>
-                <button
-                    onClick={() => setActiveWorkflow('competitor')}
-                    className={`px-4 py-2 font-medium transition-colors ${activeWorkflow === 'competitor'
-                        ? 'text-violet-400 border-b-2 border-violet-500'
-                        : 'text-zinc-500 hover:text-zinc-300'
-                        }`}
-                >
-                    Competitor Accounts
-                </button>
-                <button
-                    onClick={() => setActiveWorkflow('brand')}
-                    className={`px-4 py-2 font-medium transition-colors ${activeWorkflow === 'brand'
-                        ? 'text-violet-400 border-b-2 border-violet-500'
-                        : 'text-zinc-500 hover:text-zinc-300'
-                        }`}
-                >
-                    Your Brand Accounts
+                    <Settings2 size={16} /> Customize AI Prompts
                 </button>
             </div>
+
+            {showPromptSettings && (
+                <PromptSettings
+                    workflowType={activeWorkflow}
+                    onClose={() => setShowPromptSettings(false)}
+                />
+            )}
 
             <div className="grid lg:grid-cols-3 gap-8">
                 {/* Targets Column */}

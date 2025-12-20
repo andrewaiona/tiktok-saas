@@ -4,6 +4,34 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { scrapeProfileVideos, scrapeHashtagVideos, ScrapedVideoData } from '@/lib/scrape-creators';
 
+// Workflow Settings Actions
+export async function getWorkflowSettings(workflowType: string) {
+    try {
+        const settings = await prisma.workflowSettings.findUnique({
+            where: { workflowType }
+        });
+        return { success: true, settings };
+    } catch (error) {
+        console.error('Error fetching workflow settings:', error);
+        return { error: 'Failed to fetch settings' };
+    }
+}
+
+export async function updateWorkflowSettings(workflowType: string, relevancyPrompt: string, commentPrompt: string) {
+    try {
+        await prisma.workflowSettings.upsert({
+            where: { workflowType },
+            update: { relevancyPrompt, commentPrompt },
+            create: { workflowType, relevancyPrompt, commentPrompt }
+        });
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating workflow settings:', error);
+        return { error: 'Failed to update settings' };
+    }
+}
+
 export async function addTarget(type: string, value: string, workflowType: string) {
     try {
         const target = await prisma.monitoringTarget.create({
@@ -127,6 +155,18 @@ export async function analyzeVideo(videoId: number) {
         if (!video) return { error: 'Video not found' };
         if (!brand) return { error: 'Brand settings not found. Please configure them first.' };
 
+        // Determine workflow type from the video's source target (if possible) or default to 'general'
+        // For now, we'll try to find the target that scraped this video
+        const target = await prisma.monitoringTarget.findFirst({
+            where: { value: video.sourceValue, type: video.sourceType }
+        });
+        const workflowType = target?.workflowType || 'general';
+
+        // Fetch custom prompts if they exist
+        const workflowSettings = await prisma.workflowSettings.findUnique({
+            where: { workflowType }
+        });
+
         // Construct brand context
         const brandContext = `
             Product: ${brand.productName}
@@ -135,7 +175,12 @@ export async function analyzeVideo(videoId: number) {
             Persona: ${brand.persona}
         `;
 
-        const analysis = await analyzeVideoContent(video.playUrl || '', video.description, brandContext);
+        const analysis = await analyzeVideoContent(
+            video.playUrl || '',
+            video.description,
+            brandContext,
+            workflowSettings?.relevancyPrompt // Pass custom prompt
+        );
 
         await prisma.scrapedVideo.update({
             where: { id: videoId },
@@ -149,6 +194,7 @@ export async function analyzeVideo(videoId: number) {
         revalidatePath('/');
         return { success: true, analysis };
     } catch (error) {
+        console.error('Analysis action error:', error);
         return { error: 'Analysis failed' };
     }
 }
@@ -175,7 +221,23 @@ export async function analyzeAllVideos() {
         let analyzedCount = 0;
         for (const video of videos) {
             try {
-                const analysis = await analyzeVideoContent(video.playUrl || '', video.description, brandContext);
+                // Determine workflow type for the current video
+                const target = await prisma.monitoringTarget.findFirst({
+                    where: { value: video.sourceValue, type: video.sourceType }
+                });
+                const workflowType = target?.workflowType || 'general';
+
+                // Fetch custom prompts if they exist
+                const workflowSettings = await prisma.workflowSettings.findUnique({
+                    where: { workflowType }
+                });
+
+                const analysis = await analyzeVideoContent(
+                    video.playUrl || '',
+                    video.description,
+                    brandContext,
+                    workflowSettings?.relevancyPrompt // Pass custom prompt
+                );
 
                 await prisma.scrapedVideo.update({
                     where: { id: video.id },
@@ -209,13 +271,28 @@ export async function generateCommentForVideo(videoId: number) {
         if (!brand) return { error: 'Brand settings not found' };
         if (!video.isRelevant) return { error: 'Video is not marked as relevant' };
 
+        // Determine workflow type
+        const target = await prisma.monitoringTarget.findFirst({
+            where: { value: video.sourceValue, type: video.sourceType }
+        });
+        const workflowType = target?.workflowType || 'general';
+
+        // Fetch custom prompts
+        const workflowSettings = await prisma.workflowSettings.findUnique({
+            where: { workflowType }
+        });
+
         const brandContext = `
             Product: ${brand.productName}
             Description: ${brand.productDescription}
-            Target Audience: ${brand.targetAudience}
         `;
 
-        const comment = await generateComment(video.description, brandContext, brand.persona);
+        const comment = await generateComment(
+            video.description,
+            brandContext,
+            brand.persona,
+            workflowSettings?.commentPrompt // Pass custom prompt
+        );
 
         await prisma.scrapedVideo.update({
             where: { id: videoId },
@@ -252,7 +329,24 @@ export async function generateCommentsForAllRelevant() {
         let count = 0;
         for (const video of videos) {
             try {
-                const comment = await generateComment(video.description, brandContext, brand.persona);
+                // Determine workflow type
+                const target = await prisma.monitoringTarget.findFirst({
+                    where: { value: video.sourceValue, type: video.sourceType }
+                });
+                const workflowType = target?.workflowType || 'general';
+
+                // Fetch custom prompts
+                const workflowSettings = await prisma.workflowSettings.findUnique({
+                    where: { workflowType }
+                });
+
+                const comment = await generateComment(
+                    video.description,
+                    brandContext,
+                    brand.persona,
+                    workflowSettings?.commentPrompt // Pass custom prompt
+                );
+
                 await prisma.scrapedVideo.update({
                     where: { id: video.id },
                     data: { generatedComment: comment }

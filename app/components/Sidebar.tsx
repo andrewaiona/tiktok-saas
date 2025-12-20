@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Workflow, User, Zap } from 'lucide-react';
+import { LayoutDashboard, Workflow, User, Zap } from 'lucide-react';
 
-type Tab = 'workflow' | 'brand' | 'manual';
+type Tab = 'dashboard' | 'workflow' | 'brand' | 'manual';
 
 export default function Sidebar({ activeTab, onTabChange }: { activeTab: Tab; onTabChange: (tab: Tab) => void }) {
     const tabs = [
+        { id: 'dashboard' as Tab, label: 'Dashboard', icon: LayoutDashboard },
         { id: 'workflow' as Tab, label: 'Workflow', icon: Workflow },
         { id: 'brand' as Tab, label: 'Brand Profile', icon: User },
         { id: 'manual' as Tab, label: 'Manual', icon: Zap },

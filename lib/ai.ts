@@ -11,7 +11,8 @@ export type AnalysisResult = {
 export async function analyzeVideoContent(
     videoUrl: string,
     description: string,
-    brandContext: string
+    brandContext: string,
+    customPrompt?: string
 ): Promise<AnalysisResult> {
     // Check if API key is valid
     if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.length < 10) {
@@ -22,7 +23,11 @@ export async function analyzeVideoContent(
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-        const prompt = `
+        const prompt = customPrompt
+            ? customPrompt
+                .replace('{{BRAND_CONTEXT}}', brandContext)
+                .replace('{{VIDEO_DESCRIPTION}}', description)
+            : `
       You are a marketing expert. Analyze this TikTok video based on the following brand context:
       
       BRAND CONTEXT:
@@ -84,12 +89,18 @@ function mockAnalysis(description: string, brandContext: string): AnalysisResult
 export async function generateComment(
     description: string,
     brandContext: string,
-    persona: string
+    persona: string,
+    customPrompt?: string
 ): Promise<string> {
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-        const prompt = `
+        const prompt = customPrompt
+            ? customPrompt
+                .replace('{{BRAND_CONTEXT}}', brandContext)
+                .replace('{{VIDEO_DESCRIPTION}}', description)
+                .replace('{{PERSONA}}', persona)
+            : `
 You are a social media engagement expert. Write a TikTok comment that:
 
 1. Feels GENUINE and ORGANIC (not spammy)
