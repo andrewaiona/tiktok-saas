@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { addTarget, removeTarget, runScrape, analyzeVideo, analyzeAllVideos, generateCommentForVideo, generateCommentsForAllRelevant, postCommentToVideo } from '../actions';
-import { Trash2, Hash, User, Plus, Loader2, Play, Eye, MessageCircle, Share2, Heart, ExternalLink, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
+import { Trash2, Hash, User, Plus, Loader2, Play, Eye, MessageCircle, Share2, Heart, ExternalLink, Sparkles, CheckCircle2, XCircle, Send, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
+import WorkflowTimeline from './WorkflowTimeline';
 
 type Target = {
     id: number;
@@ -17,7 +18,7 @@ type Video = {
     id: number;
     tiktokId: string;
     description: string;
-    coverUrl: string;
+    coverUrl: string | null;
     author: string;
     diggCount: number;
     commentCount: number;
@@ -32,7 +33,7 @@ type Video = {
     relevanceScore: number | null;
     analysisReason: string | null;
     generatedComment: string | null;
-    commentPosted: boolean | null;
+    commentPosted: boolean;
     commentStatus: string | null;
 };
 
@@ -177,12 +178,45 @@ export default function Dashboard({ initialTargets, initialVideos }: {
         });
     }
 
+    // Calculate Workflow Status
+    const hasVideos = filteredVideos.length > 0;
+    const totalVideos = filteredVideos.length;
+    const analyzedCount = filteredVideos.filter(v => v.isRelevant !== null).length;
+    const relevantCount = filteredVideos.filter(v => v.isRelevant === true).length;
+    const commentedCount = filteredVideos.filter(v => v.commentPosted).length;
+
+    // Determine step completion
+    const isScanned = hasVideos;
+    const isFiltered = hasVideos && analyzedCount === totalVideos;
+    const isCommented = hasVideos && isFiltered && (commentedCount >= relevantCount); // Assuming we only comment on relevant ones
+    const isBoosted = false; // Placeholder for now as we don't track auto-boosts
+
+    const workflowStatus = {
+        scanned: isScanned,
+        filtered: isFiltered,
+        commented: isCommented,
+        boosted: isBoosted
+    };
+
+    const workflowCounts = {
+        total: totalVideos,
+        analyzed: analyzedCount,
+        commented: commentedCount
+    };
+
     return (
         <div className="p-6 space-y-6">
-            {/* Header */}
-            <div className="space-y-2">
-                <h2 className="text-3xl font-bold text-zinc-100">Workflow</h2>
-                <p className="text-zinc-400">Automate your TikTok engagement from scraping to posting.</p>
+            {/* Header & Timeline */}
+            <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 border-b border-zinc-800 pb-6">
+                <div className="space-y-2 shrink-0">
+                    <h2 className="text-3xl font-bold text-zinc-100">Workflow</h2>
+                    <p className="text-zinc-400">Automate your TikTok engagement from scraping to posting.</p>
+                </div>
+
+                {/* Visual Timeline */}
+                <div className="flex-1 max-w-3xl pb-2">
+                    <WorkflowTimeline status={workflowStatus} counts={workflowCounts} />
+                </div>
             </div>
 
             {/* Workflow Type Tabs */}
