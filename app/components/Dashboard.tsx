@@ -207,7 +207,7 @@ export default function Dashboard({ initialTargets, initialVideos }: {
     return (
         <div className="p-6 space-y-6">
             {/* Header & Timeline */}
-            <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 border-b border-zinc-800 pb-6">
+            <div className="flex flex-col xl:flex-row xl:items-end justify-start gap-12 border-b border-zinc-800 pb-6">
                 <div className="space-y-2 shrink-0">
                     <h2 className="text-3xl font-bold text-zinc-100">Workflow</h2>
                     <p className="text-zinc-400">Automate your TikTok engagement from scraping to posting.</p>
