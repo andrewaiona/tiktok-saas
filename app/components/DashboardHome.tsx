@@ -1,4 +1,4 @@
-import { Users, Video, MessageCircle, Activity, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Users, Video, MessageCircle, Activity } from 'lucide-react';
 import { useMemo } from 'react';
 
 interface DashboardHomeProps {
@@ -110,57 +110,33 @@ export default function DashboardHome({ targets, videos }: DashboardHomeProps) {
             {/* Workflow Status Breakdown */}
             <div className="space-y-4">
                 <h2 className="text-xl font-bold text-zinc-100">Workflow Status</h2>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {workflowStats.map((workflow) => (
-                        <div key={workflow.id} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 space-y-6 hover:border-zinc-700 transition-colors">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-zinc-200">{workflow.label}</h3>
-                                <div className={`p-2 rounded-lg ${workflow.bg}`}>
-                                    <Activity size={18} className={workflow.color} />
-                                </div>
-                            </div>
+                <div className="grid grid-cols-1 gap-4">
+                    {workflowStats.map((workflow) => {
+                        let status = 'Inactive';
+                        let statusColor = 'text-zinc-500 bg-zinc-500/10 border-zinc-500/20';
 
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-zinc-400">Active Targets</span>
-                                    <span className="font-medium text-zinc-200">{workflow.targets}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-zinc-400">Relevant Videos</span>
-                                    <span className="font-medium text-zinc-200">{workflow.relevant}</span>
-                                </div>
+                        if (workflow.targets > 0) {
+                            status = 'Active';
+                            statusColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                        }
 
-                                {/* Status Indicator */}
-                                <div className="pt-4 border-t border-zinc-800">
-                                    {workflow.pending > 0 ? (
-                                        <div className="flex items-center gap-2 text-amber-400">
-                                            <AlertCircle size={16} />
-                                            <span className="text-sm font-medium">{workflow.pending} comments pending</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2 text-emerald-400">
-                                            <CheckCircle2 size={16} />
-                                            <span className="text-sm font-medium">All caught up</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Mini Progress Bar for Posted/Relevant */}
-                                <div className="space-y-1.5">
-                                    <div className="flex justify-between text-xs text-zinc-500">
-                                        <span>Completion</span>
-                                        <span>{workflow.relevant > 0 ? Math.round((workflow.posted / workflow.relevant) * 100) : 0}%</span>
+                        return (
+                            <div key={workflow.id} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex items-center justify-between hover:border-zinc-700 transition-colors">
+                                <div className="flex items-center gap-4">
+                                    <div className={`p-2 rounded-lg ${workflow.bg}`}>
+                                        <Activity size={20} className={workflow.color} />
                                     </div>
-                                    <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full rounded-full ${workflow.id === 'general' ? 'bg-blue-500' : workflow.id === 'competitor' ? 'bg-violet-500' : 'bg-pink-500'}`}
-                                            style={{ width: `${workflow.relevant > 0 ? (workflow.posted / workflow.relevant) * 100 : 0}%` }}
-                                        />
+                                    <div>
+                                        <h3 className="font-medium text-zinc-200">{workflow.label}</h3>
+                                        <p className="text-xs text-zinc-500">{workflow.targets} targets monitoring</p>
                                     </div>
                                 </div>
+                                <div className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColor}`}>
+                                    {status}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
