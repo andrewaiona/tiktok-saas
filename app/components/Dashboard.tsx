@@ -319,7 +319,7 @@ export default function Dashboard({ initialTargets, initialVideos }: {
 
                 {/* Videos Column */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between">
+                    <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 shadow-sm flex items-center justify-between sticky top-6 z-10">
                         <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
                             <Play className="text-violet-500" /> New Videos
                             <span className="text-sm font-normal text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800">
@@ -330,11 +330,11 @@ export default function Dashboard({ initialTargets, initialVideos }: {
                             <button
                                 onClick={handleAnalyzeAll}
                                 disabled={isAnalyzingAll || filteredVideos.length === 0}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
                             >
                                 {isAnalyzingAll ? (
                                     <>
-                                        <Loader2 className="animate-spin" size={16} /> Analyzing All...
+                                        <Loader2 className="animate-spin" size={16} /> Analyzing...
                                     </>
                                 ) : (
                                     <>
@@ -345,7 +345,7 @@ export default function Dashboard({ initialTargets, initialVideos }: {
                             <button
                                 onClick={handleGenerateAllComments}
                                 disabled={isGeneratingAll || filteredVideos.length === 0}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
                             >
                                 {isGeneratingAll ? (
                                     <>
