@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model MonitoringTarget {
+  id           Int      @id @default(autoincrement())
+  type         String   // "HASHTAG" or "USERNAME"
+  value        String
+  workflowType String   @default("general") // "general", "competitor", or "brand"
+  createdAt    DateTime @default(now())
+}
+
+model ScrapedVideo {
+  id              Int      @id @default(autoincrement())
+  tiktokId        String   @unique
+  description     String
+  coverUrl        String
+  author          String
+  diggCount       Int
+  commentCount    Int
+  playCount       Int
+  shareCount      Int
+  createdAt       DateTime // Creation time of the video
+  scrapedAt       DateTime @default(now())
+  
+  // For AI Analysis later
+  playUrl         String?
+  isRelevant      Boolean?
+  relevanceScore  Float?
+  analysisReason  String?
+  generatedComment String?
+  
+  // Comment posting tracking
+  commentPosted   Boolean? @default(false)
+  commentId       String?  // UGC API comment ID
+  commentUrl      String?  // URL to the posted comment
+  commentStatus   String?  // pending, completed, failed
+  
+  // Link to the target that found this (optional, but good for tracking)
+  sourceType      String   // "HASHTAG" or "USERNAME"
+  sourceValue     String
+}
+
+model BrandSettings {
+  id                Int      @id @default(autoincrement())
+  productName       String
+  productDescription String
+  targetAudience    String
+  persona           String   @default("Professional") // e.g. "Friendly", "Professional", "Edgy"
+  ugcAccountId      String?  // UGC API account ID for posting comments
+  updatedAt         DateTime @updatedAt
+}
