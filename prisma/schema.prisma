@@ -43,6 +43,10 @@ model ScrapedVideo {
   // Link to the target that found this (optional, but good for tracking)
   sourceType      String   // "HASHTAG" or "USERNAME"
   sourceValue     String
+  
+  // Boosting tracking
+  boostOrderId    String?
+  boostStatus     String?  // pending, completed, failed
 }
 
 model BrandSettings {

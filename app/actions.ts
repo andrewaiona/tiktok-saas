@@ -434,18 +434,58 @@ export async function postManualComment(accountId: string, postUrl: string, comm
 }
 
 import { boostCommentLikes } from '@/lib/smm-api';
+import { getComments } from '@/lib/ugc-api';
 
-export async function boostComment(videoUrl: string, username: string, quantity: number) {
+export async function boostComment(videoId: number) {
     try {
-        const result = await boostCommentLikes(videoUrl, username, quantity);
+        const video = await prisma.scrapedVideo.findUnique({ where: { id: videoId } });
+        if (!video) return { error: 'Video not found' };
+        if (!video.commentId) return { error: 'No comment ID found. Has the comment been posted?' };
 
-        if (result.ok && result.orderId) {
-            return { success: true, orderId: result.orderId };
-        } else {
-            return { error: result.error || 'Failed to boost comment' };
+        // 1. Get Comment Details from UGC API to find the URL and Account ID
+        const commentResponse = await getComments({ commentIds: [video.commentId] });
+        if (!commentResponse.ok || !commentResponse.comments || commentResponse.comments.length === 0) {
+            return { error: 'Failed to fetch comment details from UGC API' };
         }
+
+        const ugcComment = commentResponse.comments[0];
+
+        if (!ugcComment.commentUrl) {
+            return { error: 'Comment URL not yet available. Please wait a moment until the comment is fully processed on TikTok.' };
+        }
+
+        // 2. Get Account Details to find the Username
+        const accountsResponse = await getAccounts();
+        if (!accountsResponse.ok || !accountsResponse.accounts) {
+            return { error: 'Failed to fetch account details' };
+        }
+
+        const account = accountsResponse.accounts.find(a => a.id === ugcComment.accountId);
+        if (!account || !account.username) {
+            return { error: 'Could not find username for the account that posted the comment' };
+        }
+
+        // 3. Boost with SMM API
+        const boostResponse = await boostCommentLikes(ugcComment.commentUrl, account.username, 100);
+
+        if (!boostResponse.ok) {
+            return { error: `Boosting failed: ${boostResponse.error}` };
+        }
+
+        // 4. Update Database
+        await prisma.scrapedVideo.update({
+            where: { id: videoId },
+            data: {
+                boostOrderId: boostResponse.orderId?.toString(),
+                boostStatus: 'ordered'
+            }
+        });
+
+        revalidatePath('/');
+        return { success: true };
+
     } catch (error) {
-        console.error('Boost comment error:', error);
-        return { error: 'Failed to boost comment' };
+        console.error('Boost action error:', error);
+        return { error: 'Internal server error during boosting' };
     }
 }

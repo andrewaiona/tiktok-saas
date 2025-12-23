@@ -163,3 +163,59 @@ export async function getAccounts(): Promise<{
         return { ok: false, error: (error as Error).message };
     }
 }
+export type UGCComment = {
+    id: string;
+    accountId: string;
+    postUrl: string;
+    commentText: string;
+    status: string;
+    commentUrl: string | null;
+    error: string | null;
+    createdAt: string;
+    completedAt: string | null;
+};
+
+export async function getComments(params: {
+    commentIds?: string[];
+    accountIds?: string[];
+    tag?: string;
+}): Promise<{ ok: boolean; comments?: UGCComment[]; error?: string }> {
+    const apiKey = process.env.UGC_API_KEY;
+
+    if (!apiKey) {
+        return { ok: false, error: 'UGC_API_KEY not configured' };
+    }
+
+    try {
+        const response = await fetch('https://api.ugc.inc/comment', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(params)
+        });
+
+        const text = await response.text();
+
+        if (!text || text.trim() === '') {
+            return { ok: false, error: 'UGC API returned empty response' };
+        }
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            return { ok: false, error: 'Invalid API response json' };
+        }
+
+        if (data.code === 200 && Array.isArray(data.data)) {
+            return { ok: true, comments: data.data };
+        } else {
+            return { ok: false, error: data.message || 'Failed to fetch comments' };
+        }
+    } catch (error) {
+        console.error('UGC API error:', error);
+        return { ok: false, error: (error as Error).message };
+    }
+}

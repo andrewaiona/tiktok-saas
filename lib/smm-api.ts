@@ -1,7 +1,7 @@
 // AmazingSMM API Client for TikTok Comment Likes
 
 export async function boostCommentLikes(
-    videoUrl: string,
+    commentUrl: string,
     username: string,
     quantity: number
 ): Promise<{ ok: boolean; orderId?: number; error?: string }> {
@@ -22,7 +22,7 @@ export async function boostCommentLikes(
                 key: apiKey,
                 action: 'add',
                 service: serviceId,
-                link: videoUrl,
+                link: commentUrl,
                 quantity: quantity.toString(),
                 username: username
             })

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { addTarget, removeTarget, runScrape, analyzeVideo, analyzeAllVideos, generateCommentForVideo, generateCommentsForAllRelevant, postCommentToVideo } from '../actions';
-import { Trash2, Hash, User, Plus, Loader2, Play, Eye, MessageCircle, Share2, Heart, ExternalLink, Sparkles, CheckCircle2, XCircle, Send, AlertCircle, Settings2 } from 'lucide-react';
+import { addTarget, removeTarget, runScrape, analyzeVideo, analyzeAllVideos, generateCommentForVideo, generateCommentsForAllRelevant, postCommentToVideo, boostComment } from '../actions';
+import { Trash2, Hash, User, Plus, Loader2, Play, Eye, MessageCircle, Share2, Heart, ExternalLink, Sparkles, CheckCircle2, XCircle, Send, AlertCircle, Settings2, Zap } from 'lucide-react';
 import Image from 'next/image';
 import WorkflowTimeline from './WorkflowTimeline';
 import PromptSettings from './PromptSettings';
@@ -36,6 +36,8 @@ type Video = {
     generatedComment: string | null;
     commentPosted: boolean;
     commentStatus: string | null;
+    boostOrderId: string | null;
+    boostStatus: string | null;
 };
 
 type BrandSettingsData = {
@@ -111,6 +113,7 @@ export default function Dashboard({ initialTargets, initialVideos }: {
     const [generatingCommentId, setGeneratingCommentId] = useState<number | null>(null);
     const [isGeneratingAll, setIsGeneratingAll] = useState(false);
     const [postingCommentId, setPostingCommentId] = useState<number | null>(null);
+    const [boostingCommentId, setBoostingCommentId] = useState<number | null>(null);
 
     const handleAnalyze = (videoId: number) => {
         setAnalyzingId(videoId);
@@ -175,6 +178,20 @@ export default function Dashboard({ initialTargets, initialVideos }: {
                 alert(res.error);
             } else {
                 alert('Comment posted successfully!');
+                window.location.reload();
+            }
+        });
+    }
+
+    const handleBoostComment = (videoId: number) => {
+        setBoostingCommentId(videoId);
+        startTransition(async () => {
+            const res = await boostComment(videoId);
+            setBoostingCommentId(null);
+            if (res.error) {
+                alert(res.error);
+            } else {
+                alert('Boost ordered successfully!');
                 window.location.reload();
             }
         });
@@ -526,6 +543,18 @@ export default function Dashboard({ initialTargets, initialVideos }: {
                                                             <>Post</>
                                                         )}
                                                     </button>
+                                                )}
+                                                {video.commentPosted && !video.boostOrderId && (
+                                                    <button
+                                                        onClick={() => handleBoostComment(video.id)}
+                                                        disabled={boostingCommentId === video.id}
+                                                        className="text-xs text-orange-400 hover:text-orange-300 px-2 py-0.5 bg-orange-500/10 rounded hover:bg-orange-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                                    >
+                                                        {boostingCommentId === video.id ? <><Loader2 size={10} className="animate-spin" /> Boosting...</> : <><Zap size={10} /> Boost 100❤️</>}
+                                                    </button>
+                                                )}
+                                                {video.boostOrderId && (
+                                                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/30 flex items-center gap-1"><Zap size={10} /> Boosted</span>
                                                 )}
                                             </div>
                                         </div>
