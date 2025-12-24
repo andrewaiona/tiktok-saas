@@ -39,7 +39,8 @@ BRAND TO PROMOTE:
 
 Write ONLY the comment text, nothing else. Make it conversational and authentic.`;
 
-export default function PromptSettings({ workflowType, onClose }: PromptSettingsProps) {
+export default function PromptSettings({ workflowType = 'general', onClose }: { workflowType?: string, onClose: () => void }) {
+    const [activeTab, setActiveTab] = useState(workflowType);
     const [relevancyPrompt, setRelevancyPrompt] = useState('');
     const [commentPrompt, setCommentPrompt] = useState('');
     const [loading, setLoading] = useState(true);
@@ -47,7 +48,8 @@ export default function PromptSettings({ workflowType, onClose }: PromptSettings
 
     useEffect(() => {
         const fetchSettings = async () => {
-            const result = await getWorkflowSettings(workflowType);
+            setLoading(true);
+            const result = await getWorkflowSettings(activeTab);
             if (result.success && result.settings) {
                 setRelevancyPrompt(result.settings.relevancyPrompt);
                 setCommentPrompt(result.settings.commentPrompt);
@@ -59,13 +61,23 @@ export default function PromptSettings({ workflowType, onClose }: PromptSettings
             setLoading(false);
         };
         fetchSettings();
-    }, [workflowType]);
+    }, [activeTab]);
 
     const handleSave = async () => {
         setSaving(true);
-        await updateWorkflowSettings(workflowType, relevancyPrompt, commentPrompt);
+        await updateWorkflowSettings(activeTab, relevancyPrompt, commentPrompt);
         setSaving(false);
-        onClose();
+        // Don't close, maybe show success toast? Or just stays open to edit others.
+        // Let's just flash saved state or similar, or close if user expects it. 
+        // User probably wants to save and maybe switch tabs. Let's not close.
+        // Actually, for simplicity let's close or add a "Saved" indicator. 
+        // I'll close for now to mimic previous behavior, but optimal UX might differ. 
+        // Wait, if I have tabs, saving shouldn't close the whole modal usually.
+        // I'll just keep it open and maybe show a brief "Saved!" on the button text?
+        // For now I'll adhere to previous behavior of onClose() BUT since we have tabs, user might want to edit multiple.
+        // I will make Save ONLY save the current one.
+        // For best UX in "One Workflow" ethos, maybe "Save & Close"?
+        alert('Settings saved!');
     };
 
     const handleReset = () => {
@@ -75,21 +87,42 @@ export default function PromptSettings({ workflowType, onClose }: PromptSettings
         }
     };
 
+    const tabs = [
+        { id: 'general', label: 'General' },
+        { id: 'competitor', label: 'Competitor' },
+        { id: 'brand', label: 'Brand' },
+    ];
+
     return (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
                 {/* Header */}
-                <div className="p-6 border-b border-zinc-200 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+                <div className="p-6 border-b border-zinc-200">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
                             <Settings2 className="text-[#00BC1F]" />
-                            {workflowType.charAt(0).toUpperCase() + workflowType.slice(1)} Prompts
-                        </h2>
-                        <p className="text-sm text-zinc-500">Customize AI behavior for this workflow.</p>
+                            <h2 className="text-xl font-bold text-zinc-900">AI Prompts</h2>
+                        </div>
+                        <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-500 hover:text-zinc-900 transition-colors">
+                            <X size={20} />
+                        </button>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-500 hover:text-zinc-900 transition-colors">
-                        <X size={20} />
-                    </button>
+
+                    <div className="flex p-1 bg-zinc-100 rounded-xl w-fit">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id
+                                        ? 'bg-white text-zinc-900 shadow-sm'
+                                        : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-sm text-zinc-500 mt-3">Customize AI behavior for the <strong>{activeTab}</strong> workflow tag.</p>
                 </div>
 
                 {/* Content */}
@@ -131,14 +164,14 @@ export default function PromptSettings({ workflowType, onClose }: PromptSettings
                         onClick={handleReset}
                         className="flex items-center gap-2 px-4 py-2 hover:bg-zinc-100 rounded-lg text-zinc-500 hover:text-zinc-900 transition-colors text-sm"
                     >
-                        <RefreshCcw size={16} /> Reset Defaults
+                        <RefreshCcw size={16} /> Reset
                     </button>
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
                             className="px-4 py-2 hover:bg-zinc-100 rounded-lg text-zinc-600 transition-colors font-medium text-sm"
                         >
-                            Cancel
+                            Close
                         </button>
                         <button
                             onClick={handleSave}
@@ -146,7 +179,7 @@ export default function PromptSettings({ workflowType, onClose }: PromptSettings
                             className="flex items-center gap-2 px-6 py-2 bg-[#00BC1F] hover:bg-[#009b19] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 shadow-sm"
                         >
                             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                            Save Changes
+                            Save {activeTab} Prompts
                         </button>
                     </div>
                 </div>
