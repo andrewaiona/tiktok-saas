@@ -27,7 +27,7 @@ function getApiKey() {
 /**
  * Scrapes videos from a TikTok profile.
  */
-export async function scrapeProfileVideos(handle: string): Promise<ScrapedVideoData[]> {
+export async function scrapeProfileVideos(handle: string, limit: number = 10): Promise<ScrapedVideoData[]> {
     const apiKey = getApiKey();
     const url = `${BASE_URL}/v3/tiktok/profile/videos?handle=${handle}&sort_by=latest`;
 
@@ -43,7 +43,7 @@ export async function scrapeProfileVideos(handle: string): Promise<ScrapedVideoD
         }
 
         const data = await response.json();
-        return (data.aweme_list || []).map((video: any) => ({
+        const videos = (data.aweme_list || []).map((video: any) => ({
             tiktokId: video.aweme_id,
             description: video.desc,
             coverUrl: video.video?.cover?.url_list?.[0] || '',
@@ -55,6 +55,8 @@ export async function scrapeProfileVideos(handle: string): Promise<ScrapedVideoD
             createdAt: video.create_time,
             playUrl: video.video?.play_addr?.url_list?.[0] || '',
         }));
+
+        return videos.slice(0, limit);
     } catch (error) {
         console.error('Error in scrapeProfileVideos:', error);
         return [];
@@ -64,7 +66,7 @@ export async function scrapeProfileVideos(handle: string): Promise<ScrapedVideoD
 /**
  * Scrapes videos by hashtag.
  */
-export async function scrapeHashtagVideos(hashtag: string): Promise<ScrapedVideoData[]> {
+export async function scrapeHashtagVideos(hashtag: string, limit: number = 10): Promise<ScrapedVideoData[]> {
     const apiKey = getApiKey();
     const url = `${BASE_URL}/v1/tiktok/search/hashtag?hashtag=${hashtag}&region=US`;
 
@@ -80,7 +82,7 @@ export async function scrapeHashtagVideos(hashtag: string): Promise<ScrapedVideo
         }
 
         const data = await response.json();
-        return (data.aweme_list || []).map((video: any) => ({
+        const videos = (data.aweme_list || []).map((video: any) => ({
             tiktokId: video.aweme_id,
             description: video.desc,
             coverUrl: video.video?.cover?.url_list?.[0] || '',
@@ -92,6 +94,8 @@ export async function scrapeHashtagVideos(hashtag: string): Promise<ScrapedVideo
             createdAt: video.create_time,
             playUrl: video.video?.play_addr?.url_list?.[0] || '',
         }));
+
+        return videos.slice(0, limit);
     } catch (error) {
         console.error('Error in scrapeHashtagVideos:', error);
         return [];

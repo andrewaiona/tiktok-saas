@@ -69,8 +69,8 @@ export default function DashboardHome({ targets, videos }: DashboardHomeProps) {
     return (
         <div className="p-8 space-y-8">
             <div className="space-y-2">
-                <h1 className="text-3xl font-bold text-zinc-100">Dashboard</h1>
-                <p className="text-zinc-400">Overview of your TikTok monitoring and engagement.</p>
+                <h1 className="text-3xl font-bold text-zinc-900">Dashboard</h1>
+                <p className="text-zinc-500">Overview of your TikTok monitoring and engagement.</p>
             </div>
 
             {/* Global Stats Grid */}
@@ -79,7 +79,7 @@ export default function DashboardHome({ targets, videos }: DashboardHomeProps) {
                     title="Total Targets"
                     value={stats.totalTargets}
                     icon={Users}
-                    color="text-blue-400"
+                    color="text-blue-500"
                     bg="bg-blue-500/10"
                 />
                 <StatCard
@@ -87,14 +87,14 @@ export default function DashboardHome({ targets, videos }: DashboardHomeProps) {
                     value={stats.totalVideos}
                     subValue={`+${stats.newVideos24h} today`}
                     icon={Video}
-                    color="text-violet-400"
+                    color="text-violet-500"
                     bg="bg-violet-500/10"
                 />
                 <StatCard
                     title="Relevant Found"
                     value={stats.relevantVideos}
                     icon={Activity}
-                    color="text-emerald-400"
+                    color="text-emerald-500"
                     bg="bg-emerald-500/10"
                 />
                 <StatCard
@@ -102,32 +102,32 @@ export default function DashboardHome({ targets, videos }: DashboardHomeProps) {
                     value={stats.commentsPosted}
                     subValue={`${stats.commentsGenerated} generated`}
                     icon={MessageCircle}
-                    color="text-pink-400"
+                    color="text-pink-500"
                     bg="bg-pink-500/10"
                 />
             </div>
 
             {/* Workflow Status Breakdown */}
             <div className="space-y-4">
-                <h2 className="text-xl font-bold text-zinc-100">Workflow Status</h2>
+                <h2 className="text-xl font-bold text-zinc-900">Workflow Status</h2>
                 <div className="grid grid-cols-1 gap-4">
                     {workflowStats.map((workflow) => {
                         let status = 'Inactive';
-                        let statusColor = 'text-zinc-500 bg-zinc-500/10 border-zinc-500/20';
+                        let statusColor = 'text-zinc-500 bg-zinc-100 border-zinc-200';
 
                         if (workflow.targets > 0) {
                             status = 'Active';
-                            statusColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                            statusColor = 'text-emerald-600 bg-emerald-100 border-emerald-200';
                         }
 
                         return (
-                            <div key={workflow.id} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex items-center justify-between hover:border-zinc-700 transition-colors">
+                            <div key={workflow.id} className="bg-white border border-zinc-200 rounded-xl p-4 flex items-center justify-between hover:border-zinc-300 transition-colors shadow-sm">
                                 <div className="flex items-center gap-4">
                                     <div className={`p-2 rounded-lg ${workflow.bg}`}>
                                         <Activity size={20} className={workflow.color} />
                                     </div>
                                     <div>
-                                        <h3 className="font-medium text-zinc-200">{workflow.label}</h3>
+                                        <h3 className="font-medium text-zinc-900">{workflow.label}</h3>
                                         <p className="text-xs text-zinc-500">{workflow.targets} targets monitoring</p>
                                     </div>
                                 </div>
@@ -145,12 +145,12 @@ export default function DashboardHome({ targets, videos }: DashboardHomeProps) {
 
 function StatCard({ title, value, subValue, icon: Icon, color, bg }: any) {
     return (
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 space-y-4 hover:border-zinc-700 transition-colors">
+        <div className="bg-white border border-zinc-200 rounded-2xl p-6 space-y-4 hover:border-zinc-300 transition-colors shadow-sm">
             <div className="flex items-start justify-between">
                 <div>
-                    <p className="text-sm font-medium text-zinc-400">{title}</p>
-                    <h3 className="text-3xl font-bold text-zinc-100 mt-2">{value}</h3>
-                    {subValue && <p className="text-xs text-zinc-500 mt-1">{subValue}</p>}
+                    <p className="text-sm font-medium text-zinc-500">{title}</p>
+                    <h3 className="text-3xl font-bold text-zinc-900 mt-2">{value}</h3>
+                    {subValue && <p className="text-xs text-zinc-400 mt-1">{subValue}</p>}
                 </div>
                 <div className={`p-3 rounded-xl ${bg}`}>
                     <Icon className={color} size={24} />

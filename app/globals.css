@@ -6,14 +6,16 @@
 }
 
 :root {
-  --background: #09090b;
-  /* zinc-950 */
-  --foreground: #fafafa;
-  /* zinc-50 */
+  --background: #F3F4EF;
+  /* Light Theme Background */
+  --foreground: #333333;
+  /* Main Text */
+  --foreground-secondary: #868686;
+  /* Secondary Text */
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: #333333;
+  background: #F3F4EF;
   font-family: var(--font-sans), sans-serif;
 }

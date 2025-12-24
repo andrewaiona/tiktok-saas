@@ -26,9 +26,9 @@ export default function WorkflowTimeline({ status, counts }: WorkflowTimelinePro
         <div className="w-full">
             <div className="flex items-center justify-between relative">
                 {/* Connecting Line */}
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-zinc-800 -z-10 rounded-full"></div>
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-zinc-200 -z-10 rounded-full"></div>
                 <div
-                    className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-violet-600 transition-all duration-500 rounded-full -z-10"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-[#00BC1F] transition-all duration-500 rounded-full -z-10"
                     style={{
                         width: `${(steps.findIndex(s => s.isActive) / (steps.length - 1)) * 100}%`
                     }}
@@ -38,10 +38,10 @@ export default function WorkflowTimeline({ status, counts }: WorkflowTimelinePro
                     <div key={step.id} className="flex flex-col items-center gap-2 relative bg-[var(--background)] px-2">
                         <div
                             className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${step.isCompleted
-                                    ? 'bg-violet-600 border-violet-600 text-white shadow-[0_0_15px_rgba(124,58,237,0.5)]'
-                                    : step.isActive
-                                        ? 'bg-zinc-900 border-violet-500 text-violet-500 shadow-[0_0_10px_rgba(124,58,237,0.3)] animate-pulse'
-                                        : 'bg-zinc-950 border-zinc-800 text-zinc-600'
+                                ? 'bg-[#00BC1F] border-[#00BC1F] text-white shadow-[0_0_15px_rgba(0,188,31,0.5)]'
+                                : step.isActive
+                                    ? 'bg-white border-[#00BC1F] text-[#00BC1F] shadow-[0_0_10px_rgba(0,188,31,0.3)] animate-pulse'
+                                    : 'bg-white border-zinc-200 text-zinc-400'
                                 }`}
                         >
                             {step.isCompleted ? (
@@ -54,7 +54,7 @@ export default function WorkflowTimeline({ status, counts }: WorkflowTimelinePro
                         </div>
 
                         <div className="text-center absolute top-12 w-32">
-                            <p className={`font-bold text-sm transition-colors ${step.isActive || step.isCompleted ? 'text-zinc-100' : 'text-zinc-600'
+                            <p className={`font-bold text-sm transition-colors ${step.isActive || step.isCompleted ? 'text-zinc-900' : 'text-zinc-400'
                                 }`}>
                                 {step.name}
                             </p>

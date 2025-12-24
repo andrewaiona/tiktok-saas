@@ -50,11 +50,11 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
     };
 
     return (
-        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
-                <Sparkles className="text-amber-400" /> Brand AI Profile
+        <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+                <Sparkles className="text-[#00BC1F]" /> Brand AI Profile
             </h2>
-            <p className="text-zinc-400 text-sm">
+            <p className="text-zinc-500 text-sm">
                 Configure your brand details so the AI can identify relevant videos.
             </p>
 
@@ -65,7 +65,7 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
                         type="text"
                         value={settings.productName}
                         onChange={(e) => setSettings({ ...settings, productName: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                        className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50 shadow-sm"
                         placeholder="e.g. TikTok SaaS Tool"
                     />
                 </div>
@@ -75,7 +75,7 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
                     <textarea
                         value={settings.productDescription}
                         onChange={(e) => setSettings({ ...settings, productDescription: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50 min-h-[80px]"
+                        className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50 min-h-[80px] shadow-sm"
                         placeholder="What does your product do? Key features?"
                     />
                 </div>
@@ -86,7 +86,7 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
                         type="text"
                         value={settings.targetAudience}
                         onChange={(e) => setSettings({ ...settings, targetAudience: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                        className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50 shadow-sm"
                         placeholder="e.g. Indie hackers, marketers"
                     />
                 </div>
@@ -96,7 +96,7 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
                     <select
                         value={settings.persona}
                         onChange={(e) => setSettings({ ...settings, persona: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                        className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50 shadow-sm"
                     >
                         <option value="Professional">Professional</option>
                         <option value="Casual">Casual</option>
@@ -112,7 +112,7 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
                             type="button"
                             onClick={loadAccounts}
                             disabled={loadingAccounts}
-                            className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 disabled:opacity-50"
+                            className="text-xs text-[#00BC1F] hover:text-[#009b19] flex items-center gap-1 disabled:opacity-50"
                         >
                             {loadingAccounts ? (
                                 <>
@@ -128,7 +128,7 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
                         <select
                             value={settings.ugcAccountId || ''}
                             onChange={(e) => setSettings({ ...settings, ugcAccountId: e.target.value })}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                            className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50 shadow-sm"
                         >
                             <option value="">Select an account...</option>
                             {accounts.map((account) => (
@@ -142,11 +142,11 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
                             type="text"
                             value={settings.ugcAccountId || ''}
                             onChange={(e) => setSettings({ ...settings, ugcAccountId: e.target.value })}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                            className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50 shadow-sm"
                             placeholder="Click 'Refresh Accounts' to load"
                         />
                     )}
-                    <p className="text-xs text-zinc-600 mt-1">
+                    <p className="text-xs text-zinc-500 mt-1">
                         {accounts.length > 0
                             ? 'Select a TikTok account to post comments from'
                             : 'Click "Refresh Accounts" to load your UGC accounts'}
@@ -156,7 +156,7 @@ export default function BrandSettings({ initialSettings }: { initialSettings: Br
                 <button
                     onClick={handleSave}
                     disabled={isPending}
-                    className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2 mt-2"
+                    className="w-full bg-[#00BC1F] hover:bg-[#009b19] text-white font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2 mt-2 shadow-sm"
                 >
                     {isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                     Save Profile

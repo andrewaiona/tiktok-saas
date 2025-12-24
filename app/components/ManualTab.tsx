@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { fetchUGCAccounts, postManualComment, boostComment } from '../actions';
+import { useState, useTransition, useEffect, useRef } from 'react';
+import { fetchUGCAccounts, postManualComment, checkManualCommentStatus, boostManualComment } from '../actions';
 import { Loader2, Send, ThumbsUp } from 'lucide-react';
 
 type UGCAccount = {
@@ -61,6 +61,95 @@ export default function ManualTab() {
         });
     };
 
+    // Post & Boost Logic
+    const [pollingCommentId, setPollingCommentId] = useState<string | null>(null);
+    const [wantsBoostLikes, setWantsBoostLikes] = useState(100);
+    const [pollingStatus, setPollingStatus] = useState<string>(''); // 'Waiting...'
+
+    const handlePostAndBoost = () => {
+        if (!selectedAccount || !postUrl || !commentText) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        setPosting(true);
+        setPollingStatus('Posting comment...');
+        startTransition(async () => {
+            // 1. Post Comment
+            const res = await postManualComment(selectedAccount, postUrl, commentText);
+
+            if (res.error) {
+                setPosting(false);
+                setPollingStatus('');
+                alert(res.error);
+                return;
+            }
+
+            if (res.commentId) {
+                setPollingStatus('Waiting for TikTok (approx 30s)...');
+                setPollingCommentId(res.commentId);
+                // The useEffect below will handle polling
+            }
+        });
+    };
+
+    // Polling Effect
+    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        if (!pollingCommentId) return;
+
+        const checkStatus = async () => {
+            const statusRes = await checkManualCommentStatus(pollingCommentId);
+
+            if (statusRes.success) {
+                if (statusRes.status === 'completed' && statusRes.commentUrl) {
+                    setPollingStatus('Boosting...');
+
+                    // Stop Polling
+                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    setPollingCommentId(null);
+
+                    // Boost
+                    const account = accounts.find(a => a.id === selectedAccount);
+                    const username = account?.username;
+
+                    if (username) {
+                        const boostRes = await boostManualComment(statusRes.commentUrl, username, wantsBoostLikes);
+                        if (boostRes.success) {
+                            alert(`Success! Posted & Boosted (Order ${boostRes.orderId})`);
+                            setPostUrl('');
+                            setCommentText('');
+                        } else {
+                            alert(`Comment posted, but boost failed: ${boostRes.error}`);
+                        }
+                    } else {
+                        alert('Comment posted, but could not find username for boosting.');
+                    }
+                    setPosting(false);
+                    setPollingStatus('');
+
+                } else if (statusRes.status === 'failed') {
+                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    setPollingCommentId(null);
+                    setPosting(false);
+                    setPollingStatus('');
+                    alert('Comment posting failed on TikTok side.');
+                }
+                // If pending/running, keep polling
+            }
+        };
+
+        // Poll every 10s (user asked for 30s, but 10s is better UX, I'll do 30s if insistent, but 30s is long gap)
+        // User explicitly said "check every 30 seconds". I will follow instructions.
+        pollIntervalRef.current = setInterval(checkStatus, 30000);
+        checkStatus(); // Initial check
+
+        return () => {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        };
+    }, [pollingCommentId, selectedAccount, accounts, wantsBoostLikes]);
+
     const handleBoostComment = () => {
         if (!boostUrl || !boostUsername || boostLikes < 1) {
             alert('Please fill in all fields');
@@ -69,7 +158,7 @@ export default function ManualTab() {
 
         setBoosting(true);
         startTransition(async () => {
-            const res = await boostComment(boostUrl, boostUsername, boostLikes);
+            const res = await boostManualComment(boostUrl, boostUsername, boostLikes);
             setBoosting(false);
 
             if (res.error) {
@@ -85,19 +174,19 @@ export default function ManualTab() {
 
     return (
         <div className="p-8 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-bold text-zinc-100 mb-2">Manual Actions</h2>
-            <p className="text-zinc-400 mb-8">
+            <h2 className="text-3xl font-bold text-zinc-900 mb-2">Manual Actions</h2>
+            <p className="text-zinc-500 mb-8">
                 Manually execute individual actions without the full automation workflow.
             </p>
 
             <div className="grid md:grid-cols-2 gap-8">
                 {/* Create Comment Service */}
-                <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6">
+                <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
-                        <Send className="text-violet-500" size={24} />
-                        <h3 className="text-xl font-bold text-zinc-100">Create Comment</h3>
+                        <Send className="text-[#00BC1F]" size={24} />
+                        <h3 className="text-xl font-bold text-zinc-900">Create Comment</h3>
                     </div>
-                    <p className="text-sm text-zinc-400 mb-6">Post a comment to any TikTok video using your UGC accounts.</p>
+                    <p className="text-sm text-zinc-500 mb-6">Post a comment to any TikTok video using your UGC accounts.</p>
 
                     <div className="space-y-4">
                         {/* Account Selection */}
@@ -108,7 +197,7 @@ export default function ManualTab() {
                                     type="button"
                                     onClick={loadAccounts}
                                     disabled={loadingAccounts}
-                                    className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1 disabled:opacity-50"
+                                    className="text-xs text-[#00BC1F] hover:text-[#009b19] flex items-center gap-1 disabled:opacity-50"
                                 >
                                     {loadingAccounts ? (
                                         <>
@@ -124,7 +213,7 @@ export default function ManualTab() {
                                 <select
                                     value={selectedAccount}
                                     onChange={(e) => setSelectedAccount(e.target.value)}
-                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                                    className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50"
                                 >
                                     <option value="">Select account...</option>
                                     {accounts.map((account) => (
@@ -138,7 +227,7 @@ export default function ManualTab() {
                                     type="text"
                                     disabled
                                     placeholder="Click 'Load Accounts' first"
-                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-500"
+                                    className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-zinc-400"
                                 />
                             )}
                         </div>
@@ -151,7 +240,7 @@ export default function ManualTab() {
                                 value={postUrl}
                                 onChange={(e) => setPostUrl(e.target.value)}
                                 placeholder="https://www.tiktok.com/@username/video/123..."
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                                className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50"
                             />
                         </div>
 
@@ -164,37 +253,65 @@ export default function ManualTab() {
                                 placeholder="Enter your comment..."
                                 rows={3}
                                 maxLength={150}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500/50 resize-none"
+                                className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50 resize-none"
                             />
-                            <p className="text-xs text-zinc-600 mt-1">{commentText.length}/150 characters</p>
+                            <p className="text-xs text-zinc-400 mt-1">{commentText.length}/150 characters</p>
                         </div>
 
-                        {/* Post Button */}
-                        <button
-                            onClick={handlePostComment}
-                            disabled={posting || !selectedAccount || !postUrl || !commentText}
-                            className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {posting ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin" /> Posting...
-                                </>
-                            ) : (
-                                <>
-                                    <Send size={16} /> Post Comment
-                                </>
-                            )}
-                        </button>
+                        {/* Post Buttons */}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handlePostComment}
+                                disabled={posting || !selectedAccount || !postUrl || !commentText || pollingCommentId !== null}
+                                className="flex-1 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {posting && !pollingCommentId ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" /> Posting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send size={16} /> Post Only
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={handlePostAndBoost}
+                                disabled={posting || !selectedAccount || !postUrl || !commentText || pollingCommentId !== null}
+                                className="flex-1 bg-[#00BC1F] hover:bg-[#009b19] text-white font-semibold py-2 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
+                            >
+                                {pollingCommentId ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" /> {pollingStatus}
+                                    </>
+                                ) : (
+                                    <>
+                                        <ThumbsUp size={16} /> Post & Boost
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                        {/* Boost Likes Input for Post & Boost */}
+                        <div className="flex items-center gap-2 justify-end">
+                            <label className="text-xs text-zinc-500">Boost Likes:</label>
+                            <input
+                                type="number"
+                                value={wantsBoostLikes}
+                                onChange={(e) => setWantsBoostLikes(parseInt(e.target.value) || 0)}
+                                className="w-20 bg-white border border-zinc-200 rounded px-2 py-1 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#00BC1F]/50"
+                                min={10}
+                            />
+                        </div>
                     </div>
                 </div>
 
                 {/* Comment Boosting Service */}
-                <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6">
+                <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
                         <ThumbsUp className="text-amber-500" size={24} />
-                        <h3 className="text-xl font-bold text-zinc-100">Comment Boosting</h3>
+                        <h3 className="text-xl font-bold text-zinc-900">Comment Boosting</h3>
                     </div>
-                    <p className="text-sm text-zinc-400 mb-6">Boost engagement on specific TikTok comments with targeted likes.</p>
+                    <p className="text-sm text-zinc-500 mb-6">Boost engagement on specific TikTok comments with targeted likes.</p>
 
                     <div className="space-y-4">
                         {/* Comment URL */}
@@ -205,7 +322,7 @@ export default function ManualTab() {
                                 value={boostUrl}
                                 onChange={(e) => setBoostUrl(e.target.value)}
                                 placeholder="https://www.tiktok.com/@username/video/123..."
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                             />
                         </div>
 
@@ -217,7 +334,7 @@ export default function ManualTab() {
                                 value={boostUsername}
                                 onChange={(e) => setBoostUsername(e.target.value)}
                                 placeholder="@username"
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                             />
                         </div>
 
@@ -230,7 +347,7 @@ export default function ManualTab() {
                                 onChange={(e) => setBoostLikes(parseInt(e.target.value) || 0)}
                                 min={1}
                                 max={1000}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                className="w-full bg-white border border-zinc-200 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                             />
                         </div>
 
@@ -238,7 +355,7 @@ export default function ManualTab() {
                         <button
                             onClick={handleBoostComment}
                             disabled={boosting || !boostUrl || !boostUsername}
-                            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
                         >
                             {boosting ? (
                                 <>

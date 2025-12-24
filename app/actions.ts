@@ -65,7 +65,7 @@ export async function removeTarget(id: number) {
     }
 }
 
-export async function runScrape() {
+export async function runScrape(limit: number = 10) {
     try {
         const targets = await prisma.monitoringTarget.findMany();
         let newVideosCount = 0;
@@ -73,9 +73,9 @@ export async function runScrape() {
         for (const target of targets) {
             let videos: ScrapedVideoData[] = [];
             if (target.type === 'HASHTAG') {
-                videos = await scrapeHashtagVideos(target.value);
+                videos = await scrapeHashtagVideos(target.value, limit);
             } else if (target.type === 'USERNAME') {
-                videos = await scrapeProfileVideos(target.value);
+                videos = await scrapeProfileVideos(target.value, limit);
             }
 
             for (const video of videos) {
@@ -434,7 +434,18 @@ export async function postManualComment(accountId: string, postUrl: string, comm
 }
 
 import { boostCommentLikes } from '@/lib/smm-api';
-import { getComments } from '@/lib/ugc-api';
+
+import { getComments, getCommentStatus } from '@/lib/ugc-api';
+
+export async function deleteVideo(videoId: number) {
+    try {
+        await prisma.scrapedVideo.delete({ where: { id: videoId } });
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        return { error: 'Failed to delete video' };
+    }
+}
 
 export async function boostComment(videoId: number) {
     try {
@@ -442,17 +453,33 @@ export async function boostComment(videoId: number) {
         if (!video) return { error: 'Video not found' };
         if (!video.commentId) return { error: 'No comment ID found. Has the comment been posted?' };
 
-        // 1. Get Comment Details from UGC API to find the URL and Account ID
+        // 1. Check Comment Status from UGC API
+        const statusResponse = await getCommentStatus(video.commentId);
+
+        if (!statusResponse.ok) {
+            return { error: `Failed to fetch comment status: ${statusResponse.error}` };
+        }
+
+        if (statusResponse.status !== 'completed') {
+            return { error: `Comment is not yet completed (current status: ${statusResponse.status}). Please wait a moment.` };
+        }
+
+        if (!statusResponse.commentUrl) {
+            return { error: 'Comment is completed but URL is missing. This is unexpected.' };
+        }
+
+        // Use the returned URL and continue to find username
+        const ugcComment = { commentUrl: statusResponse.commentUrl, accountId: null }; // We need to fetch account ID differently or assume success
+
+        // NOTE: getCommentStatus doesn't return accountId, so we need to fetch the comment details to get the account ID first
+        // Or we can rely on our database if we stored it? We don't store account ID on the video model for the comment poster.
+        // Let's fetch the comment details to get the account ID as before, but knowing the status is done.
+
         const commentResponse = await getComments({ commentIds: [video.commentId] });
         if (!commentResponse.ok || !commentResponse.comments || commentResponse.comments.length === 0) {
-            return { error: 'Failed to fetch comment details from UGC API' };
+            return { error: 'Failed to fetch comment details for account lookup' };
         }
-
-        const ugcComment = commentResponse.comments[0];
-
-        if (!ugcComment.commentUrl) {
-            return { error: 'Comment URL not yet available. Please wait a moment until the comment is fully processed on TikTok.' };
-        }
+        const fullCommentDetails = commentResponse.comments[0];
 
         // 2. Get Account Details to find the Username
         const accountsResponse = await getAccounts();
@@ -460,7 +487,7 @@ export async function boostComment(videoId: number) {
             return { error: 'Failed to fetch account details' };
         }
 
-        const account = accountsResponse.accounts.find(a => a.id === ugcComment.accountId);
+        const account = accountsResponse.accounts.find(a => a.id === fullCommentDetails.accountId);
         if (!account || !account.username) {
             return { error: 'Could not find username for the account that posted the comment' };
         }
@@ -487,5 +514,31 @@ export async function boostComment(videoId: number) {
     } catch (error) {
         console.error('Boost action error:', error);
         return { error: 'Internal server error during boosting' };
+    }
+}
+
+export async function checkManualCommentStatus(commentId: string) {
+    try {
+        const result = await getCommentStatus(commentId);
+        if (result.ok) {
+            return { success: true, status: result.status, commentUrl: result.commentUrl };
+        } else {
+            return { error: result.error || 'Failed to check status' };
+        }
+    } catch (error) {
+        return { error: 'Failed to check status' };
+    }
+}
+
+export async function boostManualComment(commentUrl: string, username: string, likes: number) {
+    try {
+        const result = await boostCommentLikes(commentUrl, username, likes);
+        if (result.ok) {
+            return { success: true, orderId: result.orderId };
+        } else {
+            return { error: result.error || 'Failed to boost comment' };
+        }
+    } catch (error) {
+        return { error: 'Failed to boost comment' };
     }
 }

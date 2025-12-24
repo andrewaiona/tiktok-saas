@@ -17,7 +17,7 @@ export default function HomeClient({ targets, videos, brandSettings }: {
     const [activeTab, setActiveTab] = useState<Tab>('dashboard');
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+        <div className="flex h-screen overflow-hidden bg-[#F3F4EF] text-zinc-900">
             <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
             <div className="flex-1 overflow-y-auto">
                 {activeTab === 'dashboard' && <DashboardHome targets={targets} videos={videos} />}

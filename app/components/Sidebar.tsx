@@ -14,13 +14,10 @@ export default function Sidebar({ activeTab, onTabChange }: { activeTab: Tab; on
     ];
 
     return (
-        <div className="w-64 bg-zinc-950 border-r border-zinc-800 h-screen sticky top-0 flex flex-col">
+        <div className="w-64 bg-white border-r border-zinc-200 h-screen sticky top-0 flex flex-col">
             {/* Logo/Header */}
-            <div className="p-6 border-b border-zinc-800">
-                <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
-                    TikTok Monitor
-                </h1>
-                <p className="text-xs text-zinc-500 mt-1">Automate your growth</p>
+            <div className="p-6 border-b border-zinc-200">
+                <img src="/logo.png" alt="CommentFarm" className="h-8 w-auto" />
             </div>
 
             {/* Navigation */}
@@ -34,8 +31,8 @@ export default function Sidebar({ activeTab, onTabChange }: { activeTab: Tab; on
                             key={tab.id}
                             onClick={() => onTabChange(tab.id)}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
-                                ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
-                                : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+                                ? 'bg-[#00BC1F]/10 text-[#00BC1F] border border-[#00BC1F]/20'
+                                : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
                                 }`}
                         >
                             <Icon size={20} />
@@ -46,8 +43,8 @@ export default function Sidebar({ activeTab, onTabChange }: { activeTab: Tab; on
             </nav>
 
             {/* Footer */}
-            <div className="p-4 border-t border-zinc-800">
-                <p className="text-xs text-zinc-600 text-center">v1.0.0</p>
+            <div className="p-4 border-t border-zinc-200">
+                <p className="text-xs text-zinc-500 text-center">v1.0.0</p>
             </div>
         </div>
     );

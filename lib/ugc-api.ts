@@ -75,6 +75,7 @@ export async function getCommentStatus(commentId: string): Promise<{
     status?: string;
     commentUrl?: string;
     error?: string;
+    message?: string;
 }> {
     const apiKey = process.env.UGC_API_KEY;
 
@@ -83,10 +84,13 @@ export async function getCommentStatus(commentId: string): Promise<{
     }
 
     try {
-        const response = await fetch(`https://api.ugc.inc/comment/status?commentId=${commentId}`, {
+        const response = await fetch('https://api.ugc.inc/comment/status', {
+            method: 'POST',
             headers: {
-                'Authorization': `Bearer ${apiKey}`
-            }
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ commentId })
         });
 
         const data = await response.json();
@@ -98,7 +102,7 @@ export async function getCommentStatus(commentId: string): Promise<{
                 commentUrl: data.data.commentUrl
             };
         } else {
-            return { ok: false, error: data.message };
+            return { ok: false, error: data.data?.error || data.message || 'Failed to check status' };
         }
     } catch (error) {
         console.error('UGC API error:', error);
