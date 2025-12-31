@@ -77,36 +77,21 @@ export async function getCommentStatus(commentId: string): Promise<{
     error?: string;
     message?: string;
 }> {
-    const apiKey = process.env.UGC_API_KEY;
+    const result = await getComments({ commentIds: [commentId] });
 
-    if (!apiKey) {
-        return { ok: false, error: 'UGC_API_KEY not configured' };
-    }
-
-    try {
-        const response = await fetch('https://api.ugc.inc/comment/status', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ commentId })
-        });
-
-        const data = await response.json();
-
-        if (data.ok) {
-            return {
-                ok: true,
-                status: data.data.status,
-                commentUrl: data.data.commentUrl
-            };
-        } else {
-            return { ok: false, error: data.data?.error || data.message || 'Failed to check status' };
-        }
-    } catch (error) {
-        console.error('UGC API error:', error);
-        return { ok: false, error: (error as Error).message };
+    if (result.ok && result.comments && result.comments.length > 0) {
+        const comment = result.comments[0];
+        return {
+            ok: true,
+            status: comment.status,
+            commentUrl: comment.commentUrl || undefined,
+            error: comment.error || undefined
+        };
+    } else {
+        return {
+            ok: false,
+            error: result.error || 'Comment not found or failed to fetch status'
+        };
     }
 }
 

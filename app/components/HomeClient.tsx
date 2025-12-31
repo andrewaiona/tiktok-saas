@@ -6,8 +6,9 @@ import DashboardHome from './DashboardHome';
 import Sidebar from './Sidebar';
 import BrandProfileTab from './BrandProfileTab';
 import ManualTab from './ManualTab';
+import ApiTesterTab from './ApiTesterTab';
 
-type Tab = 'dashboard' | 'workflow' | 'brand' | 'manual';
+type Tab = 'dashboard' | 'workflow' | 'brand' | 'manual' | 'api-tester';
 
 export default function HomeClient({ targets, videos, brandSettings }: {
     targets: any[],
@@ -24,6 +25,7 @@ export default function HomeClient({ targets, videos, brandSettings }: {
                 {activeTab === 'workflow' && <Dashboard initialTargets={targets} initialVideos={videos} />}
                 {activeTab === 'brand' && <BrandProfileTab brandSettings={brandSettings} />}
                 {activeTab === 'manual' && <ManualTab />}
+                {activeTab === 'api-tester' && <ApiTesterTab />}
             </div>
         </div>
     );

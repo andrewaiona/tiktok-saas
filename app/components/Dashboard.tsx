@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { addTarget, removeTarget, runScrape, analyzeVideo, analyzeAllVideos, generateCommentForVideo, generateCommentsForAllRelevant, postCommentToVideo, boostComment, deleteVideo } from '../actions';
-import { Trash2, Hash, User, Plus, Loader2, Play, Eye, MessageCircle, Share2, Heart, ExternalLink, Sparkles, CheckCircle2, XCircle, Send, AlertCircle, Settings2, Zap, X, Activity } from 'lucide-react';
+import { useState, useTransition, useRef } from 'react';
+import { addTarget, removeTarget, runScrape, analyzeVideo, analyzeAllVideos, generateCommentForVideo, generateCommentsForAllRelevant, postCommentToVideo, boostComment, deleteVideo, postAllComments, boostAllReadyComments, clearAllScrapedData, checkAllPendingComments } from '../actions';
+import { Trash2, Hash, User, Plus, Loader2, Play, Eye, MessageCircle, Share2, Heart, ExternalLink, Sparkles, CheckCircle2, XCircle, Send, AlertCircle, Settings2, Zap, X, Activity, StopCircle } from 'lucide-react';
 import Image from 'next/image';
 import WorkflowTimeline from './WorkflowTimeline';
 import PromptSettings from './PromptSettings';
@@ -62,6 +62,9 @@ export default function Dashboard({ initialTargets, initialVideos }: {
     const [newTarget, setNewTarget] = useState({ type: 'HASHTAG', value: '', workflowType: 'general' });
     const [isPending, startTransition] = useTransition();
     const [isScraping, startScrapeTransition] = useTransition();
+
+    // Automation Ref for Stopping
+    const automationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Filter targets and videos by active filter
     const filteredTargets = activeFilter === 'all'
@@ -125,6 +128,11 @@ export default function Dashboard({ initialTargets, initialVideos }: {
     const [isGeneratingAll, setIsGeneratingAll] = useState(false);
     const [postingCommentId, setPostingCommentId] = useState<number | null>(null);
     const [boostingCommentId, setBoostingCommentId] = useState<number | null>(null);
+
+    // Automation State
+    const [isAutomating, setIsAutomating] = useState(false);
+    const [automationStatus, setAutomationStatus] = useState<string>('idle'); // idle, scraping, analyzing, generating, posting, boosting_wait, done
+    const [automationLog, setAutomationLog] = useState<string[]>([]);
 
     const handleAnalyze = (videoId: number) => {
         setAnalyzingId(videoId);
@@ -199,40 +207,152 @@ export default function Dashboard({ initialTargets, initialVideos }: {
         startTransition(async () => {
             const res = await boostComment(videoId);
             setBoostingCommentId(null);
-            if (res.error) {
-                alert(res.error);
+
+            // Fixed validation logic
+            if (res.status === 'error' || (res.status !== 'boosted' && res.status !== 'completed' && res.status !== 'processing' && !res.boosted)) {
+                alert(`Boost Status: ${res.status} - ${res.message}`);
+                if (res.status === 'boosted' || res.status === 'completed') {
+                    window.location.reload();
+                }
             } else {
-                alert('Boost ordered successfully!');
+                alert(`Success: ${res.message}`);
                 window.location.reload();
             }
         });
     }
 
-    // Calculate Workflow Status
-    const hasVideos = filteredVideos.length > 0;
-    const totalVideos = filteredVideos.length;
-    const analyzedCount = filteredVideos.filter(v => v.isRelevant !== null).length;
-    const relevantCount = filteredVideos.filter(v => v.isRelevant === true).length;
-    const commentedCount = filteredVideos.filter(v => v.commentPosted).length;
-
-    // Determine step completion
-    const isScanned = hasVideos;
-    const isFiltered = hasVideos && analyzedCount === totalVideos;
-    const isCommented = hasVideos && isFiltered && (commentedCount >= relevantCount); // Assuming we only comment on relevant ones
-    const isBoosted = false; // Placeholder for now as we don't track auto-boosts
-
-    const workflowStatus = {
-        scanned: isScanned,
-        filtered: isFiltered,
-        commented: isCommented,
-        boosted: isBoosted
+    const handleStopAutomation = () => {
+        if (automationIntervalRef.current) {
+            clearInterval(automationIntervalRef.current);
+            automationIntervalRef.current = null;
+        }
+        setIsAutomating(false);
+        setAutomationStatus('idle'); // Or 'stopped'
+        if (confirm("Automation stopped. Reload page to reset view?")) {
+            window.location.reload();
+        }
     };
 
-    const workflowCounts = {
-        total: totalVideos,
-        analyzed: analyzedCount,
-        commented: commentedCount
+    const handleRunAutomation = async () => {
+        if (targets.length === 0) {
+            alert("Please add some targets first.");
+            return;
+        }
+
+        if (!confirm("Start fully automated workflow? This will scrape, analyze, generate, post, verify comments, and boost.")) return;
+
+        setIsAutomating(true);
+        setAutomationLog([]); // Clear log
+        setAutomationStatus('scraping');
+
+        // Helper to add log with timestamp
+        const addLog = (msg: string) => setAutomationLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
+        addLog("Starting automation...");
+
+        // 1. Scrape
+        addLog("Step 1: Scraping videos...");
+        const scrapeRes = await runScrape(scrapeLimit); // Use current limit
+        if (scrapeRes.error) {
+            addLog(`Error scraping: ${scrapeRes.error}`);
+            setIsAutomating(false);
+            setAutomationStatus('error');
+            return;
+        }
+        addLog(`Scraped ${scrapeRes.count} new videos.`);
+
+        // 2. Analyze
+        setAutomationStatus('analyzing');
+        addLog("Step 2: Checking video relevancy...");
+        const analyzeRes = await analyzeAllVideos(); // This action needs to return proper counts
+        if (analyzeRes.error) {
+            addLog(`Error analyzing: ${analyzeRes.error}`);
+            // We continue? Maybe, but better to stop if analysis fails generally.
+        } else {
+            addLog(`Relevancy check complete. ${analyzeRes.count} videos analyzed/relevant.`);
+        }
+
+        // 3. Generate Comments
+        setAutomationStatus('generating');
+        addLog("Step 3: Generating AI comments...");
+        const genRes = await generateCommentsForAllRelevant();
+        if (genRes.error) {
+            addLog(`Error generating: ${genRes.error}`);
+        } else {
+            addLog(`Generated ${genRes.count} comments.`);
+        }
+
+        // 4. Post Comments
+        setAutomationStatus('posting');
+        addLog("Step 4: Posting comments to TikTok...");
+        const postRes = await postAllComments();
+        if (postRes.error) {
+            addLog(`Error posting: ${postRes.error}`);
+        } else {
+            addLog(`Posted ${postRes.count} comments. Now verifying availability...`);
+        }
+
+        // 5. Verification & Boosting
+        setAutomationStatus('posting');
+        addLog("Step 5: Verifying Comments & Monitoring Boosts...");
+
+        let attempts = 0;
+        const maxAttempts = 540; // 540 * 20s ≈ 3 hours
+
+        // Clear any existing interval
+        if (automationIntervalRef.current) clearInterval(automationIntervalRef.current);
+
+        automationIntervalRef.current = setInterval(async () => {
+            attempts++;
+            if (attempts === 1) addLog("Note: Verification may take a while as TikTok processes comments. Automation will run for up to 3 hours.");
+            addLog(`\n--- Batch Check #${attempts}/${maxAttempts} ---`);
+
+            // A. Check/Update Comments Status
+            const statusRes = await checkAllPendingComments();
+            let commentsPending = 0;
+            if (statusRes.success) {
+                commentsPending = statusRes.pendingCount;
+                if (statusRes.results && statusRes.results.length > 0) {
+                    statusRes.results.forEach((res: any) => {
+                        const icon = res.status === 'completed' ? '✅' : res.status === 'failed' ? '❌' : '⏳';
+                        addLog(`Comment Video ${res.id}: ${icon} ${res.status} ${res.commentUrl ? '(URL Found)' : ''}${res.error ? ` [${res.error}]` : ''}`);
+                    });
+                }
+            }
+
+            // B. Boost Ready Comments
+            const boostRes = await boostAllReadyComments();
+            let boostsPending = 0;
+
+            if (boostRes.success) {
+                boostsPending = boostRes.pendingCount;
+                if (boostRes.results && boostRes.results.length > 0) {
+                    boostRes.results.forEach((res: any) => {
+                        if (res.status === 'boosted' || res.status === 'ordered') {
+                            addLog(`Boost Video ${res.id}: 🚀 ORDERED`);
+                        } else if (res.status === 'error') {
+                            addLog(`Boost Video ${res.id}: ⚠️ ${res.message}`);
+                        }
+                    });
+                }
+
+                if (boostRes.boostedCount > 0) setAutomationStatus('boosting');
+            }
+
+            // Stop Condition
+            if (commentsPending === 0 && boostsPending === 0 && attempts > 1) {
+                if (automationIntervalRef.current) clearInterval(automationIntervalRef.current);
+                setAutomationStatus('done');
+                addLog("✅ Automation cycle complete! All comments verified and boosts ordered.");
+            } else if (attempts >= maxAttempts) {
+                if (automationIntervalRef.current) clearInterval(automationIntervalRef.current);
+                setAutomationStatus('done');
+                addLog("⚠️ Automation cycle timed out. Please check logs.");
+            }
+
+        }, 20000); // 20s polling
     };
+
+    // Calculate Workflow Status (omitted)
 
     // Colors for tags
     const getTagColor = (type: string) => {
@@ -256,19 +376,21 @@ export default function Dashboard({ initialTargets, initialVideos }: {
     return (
         <div className="p-8 space-y-8">
             {showPromptSettings && (
+                // ... (omitted)
                 <PromptSettings
-                    workflowType={activeFilter === 'all' ? 'general' : activeFilter} // Pass general if all, or specific prompt type. 
-                    // Actually PromptSettings will allow switching now, so this initial prop is just a starter.
+                    workflowType={activeFilter === 'all' ? 'general' : activeFilter}
                     onClose={() => setShowPromptSettings(false)}
                 />
             )}
 
+            {/* Header ... */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Active Workflows</h1>
                     <p className="text-zinc-500 mt-1">Manage all your monitoring targets and automations in one place.</p>
                 </div>
                 <div className="flex items-center gap-4">
+                    {/* ... Filters and Settings ... */}
                     <select
                         value={activeFilter}
                         onChange={(e) => setActiveFilter(e.target.value as any)}
@@ -287,8 +409,58 @@ export default function Dashboard({ initialTargets, initialVideos }: {
                         <Settings2 size={18} />
                         Prompt Settings
                     </button>
+
+                    <button
+                        onClick={handleRunAutomation}
+                        disabled={isAutomating}
+                        className={`flex items-center gap-2 px-4 py-2 text-white font-bold rounded-lg transition-all shadow-sm ${isAutomating ? 'bg-zinc-400 cursor-not-allowed' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700'
+                            }`}
+                    >
+                        {isAutomating ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="currentColor" />}
+                        {isAutomating ? 'Running...' : 'Run Full Automation'}
+                    </button>
                 </div>
             </div>
+
+            {/* Automation Status Panel */}
+            {isAutomating && (
+                <div className="bg-zinc-900 text-white rounded-xl p-4 shadow-xl border border-zinc-800 animate-in fade-in slide-in-from-top-4">
+                    <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-3">
+                        <h3 className="font-bold flex items-center gap-2">
+                            {automationStatus === 'done' ? (
+                                <CheckCircle2 className="text-[#00BC1F]" />
+                            ) : (
+                                <Loader2 className="animate-spin text-[#00BC1F]" />
+                            )}
+                            {automationStatus === 'done' ? 'Automation Complete' : 'Automation in Progress:'}
+                            {automationStatus !== 'done' && <span className="text-[#00BC1F] uppercase">{automationStatus}</span>}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                            {automationStatus === 'done' ? (
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="flex items-center gap-2 px-3 py-1 bg-[#00BC1F] hover:bg-[#009b19] text-white text-xs font-bold rounded-lg transition-colors"
+                                >
+                                    Refresh & Close
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleStopAutomation}
+                                    className="flex items-center gap-1 px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 border border-red-500/20 rounded-lg text-xs font-bold transition-all"
+                                >
+                                    <StopCircle size={14} /> STOP
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <div className="h-32 overflow-y-auto font-mono text-xs space-y-1 text-zinc-300 custom-scrollbar bg-black/30 p-2 rounded-lg">
+                        {automationLog.map((log, i) => (
+                            <div key={i}>{log}</div>
+                        ))}
+                        {automationStatus !== 'done' && <div className="animate-pulse text-[#00BC1F]">_</div>}
+                    </div>
+                </div>
+            )}
 
             <WorkflowTimeline
                 status={{
@@ -421,9 +593,24 @@ export default function Dashboard({ initialTargets, initialVideos }: {
                                 )}
                             </button>
                         </div>
-                        <p className="text-xs text-zinc-500 mt-2 px-1">
-                            Scrapes the most recent videos from each target.
-                        </p>
+                        <div className="flex items-center justify-between mt-4 border-t border-zinc-100 pt-3">
+                            <p className="text-xs text-zinc-500">
+                                Scrapes the most recent videos from each target.
+                            </p>
+                            <button
+                                onClick={() => {
+                                    if (confirm('Are you sure you want to delete ALL scraped videos and comments? This cannot be undone.')) {
+                                        startTransition(async () => {
+                                            await clearAllScrapedData();
+                                            window.location.reload();
+                                        });
+                                    }
+                                }}
+                                className="text-xs text-red-500 hover:text-red-700 hover:underline flex items-center gap-1"
+                            >
+                                <Trash2 size={12} /> Clear Data
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -657,14 +844,14 @@ export default function Dashboard({ initialTargets, initialVideos }: {
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <MessageCircle size={12} /> Generate Comment
+                                                        <MessageCircle size={12} /> Generate AI Comment
                                                     </>
                                                 )}
                                             </button>
                                         </div>
                                     )}
                                 </div>
-                            )
+                            );
                         })}
                     </div>
                 </div>
@@ -673,8 +860,12 @@ export default function Dashboard({ initialTargets, initialVideos }: {
     );
 }
 
-function formatNumber(num: number) {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+function formatNumber(num: number): string {
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+    }
+    if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+    }
     return num.toString();
 }

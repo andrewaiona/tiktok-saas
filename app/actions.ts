@@ -450,53 +450,51 @@ export async function deleteVideo(videoId: number) {
 export async function boostComment(videoId: number) {
     try {
         const video = await prisma.scrapedVideo.findUnique({ where: { id: videoId } });
-        if (!video) return { error: 'Video not found' };
-        if (!video.commentId) return { error: 'No comment ID found. Has the comment been posted?' };
+        if (!video) return { status: 'error', message: 'Video not found' };
+        if (!video.commentId) return { status: 'error', message: 'No comment ID' };
 
         // 1. Check Comment Status from UGC API
         const statusResponse = await getCommentStatus(video.commentId);
 
         if (!statusResponse.ok) {
-            return { error: `Failed to fetch comment status: ${statusResponse.error}` };
+            return { status: 'error', message: `Status check failed: ${statusResponse.error}` };
         }
 
-        if (statusResponse.status !== 'completed') {
-            return { error: `Comment is not yet completed (current status: ${statusResponse.status}). Please wait a moment.` };
+        const currentStatus = statusResponse.status || 'unknown';
+
+        if (currentStatus !== 'completed') {
+            return { status: currentStatus, message: `Status: ${currentStatus}` };
         }
 
         if (!statusResponse.commentUrl) {
-            return { error: 'Comment is completed but URL is missing. This is unexpected.' };
+            return { status: 'error', message: 'Completed but no URL' };
         }
 
-        // Use the returned URL and continue to find username
-        const ugcComment = { commentUrl: statusResponse.commentUrl, accountId: null }; // We need to fetch account ID differently or assume success
-
-        // NOTE: getCommentStatus doesn't return accountId, so we need to fetch the comment details to get the account ID first
-        // Or we can rely on our database if we stored it? We don't store account ID on the video model for the comment poster.
-        // Let's fetch the comment details to get the account ID as before, but knowing the status is done.
+        // 2. Completed! Get Account Details to find the Username
+        // We'll return the URL info now as requested
+        const ugcComment = { commentUrl: statusResponse.commentUrl };
 
         const commentResponse = await getComments({ commentIds: [video.commentId] });
         if (!commentResponse.ok || !commentResponse.comments || commentResponse.comments.length === 0) {
-            return { error: 'Failed to fetch comment details for account lookup' };
+            return { status: 'completed', message: 'URL found, but failed to fetch details for boost', commentUrl: ugcComment.commentUrl };
         }
         const fullCommentDetails = commentResponse.comments[0];
 
-        // 2. Get Account Details to find the Username
         const accountsResponse = await getAccounts();
         if (!accountsResponse.ok || !accountsResponse.accounts) {
-            return { error: 'Failed to fetch account details' };
+            return { status: 'completed', message: 'URL found, but failed to fetch accounts for boost', commentUrl: ugcComment.commentUrl };
         }
 
         const account = accountsResponse.accounts.find(a => a.id === fullCommentDetails.accountId);
         if (!account || !account.username) {
-            return { error: 'Could not find username for the account that posted the comment' };
+            return { status: 'completed', message: 'URL found, but username not found', commentUrl: ugcComment.commentUrl };
         }
 
         // 3. Boost with SMM API
         const boostResponse = await boostCommentLikes(ugcComment.commentUrl, account.username, 100);
 
         if (!boostResponse.ok) {
-            return { error: `Boosting failed: ${boostResponse.error}` };
+            return { status: 'completed', message: `URL found. Boost failed: ${boostResponse.error}`, commentUrl: ugcComment.commentUrl };
         }
 
         // 4. Update Database
@@ -509,11 +507,11 @@ export async function boostComment(videoId: number) {
         });
 
         revalidatePath('/');
-        return { success: true };
+        return { status: 'boosted', boosted: true, message: 'Boost ordered!', commentUrl: ugcComment.commentUrl };
 
     } catch (error) {
         console.error('Boost action error:', error);
-        return { error: 'Internal server error during boosting' };
+        return { status: 'error', message: 'Internal error' };
     }
 }
 
@@ -540,5 +538,179 @@ export async function boostManualComment(commentUrl: string, username: string, l
         }
     } catch (error) {
         return { error: 'Failed to boost comment' };
+    }
+}
+
+export async function postAllComments() {
+    try {
+        const videos = await prisma.scrapedVideo.findMany({
+            where: {
+                isRelevant: true,
+                generatedComment: { not: null },
+                commentPosted: false, // or null
+            }
+        });
+
+        if (videos.length === 0) return { success: true, count: 0 };
+
+        let postedCount = 0;
+        const postedIds: number[] = [];
+
+        // We can run these in parallel or sequence. Sequence is safer for rate limits.
+        for (const video of videos) {
+            const result = await postCommentToVideo(video.id);
+            if (result.success) {
+                postedCount++;
+                postedIds.push(video.id);
+            }
+        }
+
+        revalidatePath('/');
+        return { success: true, count: postedCount, postedIds };
+    } catch (error) {
+        console.error('Batch post error:', error);
+        return { error: 'Batch post failed' };
+    }
+}
+
+export async function boostAllReadyComments() {
+    try {
+        // Find videos that have been posted but not yet boosted
+        const videos = await prisma.scrapedVideo.findMany({
+            where: {
+                commentPosted: true,
+                commentStatus: 'completed', // Only boost if explicitly completed/verified
+                boostOrderId: null
+            }
+        });
+
+        if (videos.length === 0) return { success: true, boostedCount: 0, pendingCount: 0, results: [] };
+
+        let boostedCount = 0;
+        let pendingCount = 0;
+        const results = [];
+
+        for (const video of videos) {
+            // Re-use our single boost logic which handles status checking
+            const result = await boostComment(video.id);
+
+            results.push({
+                id: video.id,
+                ...result
+            });
+
+            if (result.boosted) {
+                boostedCount++;
+            } else if (result.status !== 'error' && result.status !== 'failed') {
+                // Pending, running, completed (but not boosted yet due to error?)
+                // Actually if it is completed but failed to boost, we might not want to count strictly as pending forever?
+                // But for now, let's treat non-final states as pending.
+                pendingCount++;
+            }
+        }
+
+        revalidatePath('/');
+        return { success: true, boostedCount, pendingCount, results };
+    } catch (error) {
+        console.error('Batch boost error:', error);
+        return { error: 'Batch boost failed' };
+    }
+}
+
+export async function clearAllScrapedData() {
+    try {
+        await prisma.scrapedVideo.deleteMany({});
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error('Clear data error:', error);
+        return { error: 'Failed to clear data' };
+    }
+}
+
+export async function fetchUGCComments(accountId: string) {
+    try {
+        const result = await getComments({ accountIds: [accountId] });
+        if (result.ok && result.comments) {
+            return { success: true, comments: result.comments };
+        } else {
+            return { error: result.error || 'Failed to fetch comments' };
+        }
+    } catch (error) {
+        return { error: 'Failed to fetch comments' };
+    }
+}
+
+// New function to check status of posted comments before boosting
+export async function checkAllPendingComments() {
+    try {
+        // Find videos with commentPosted=true but no commentUrl (or status not completed/failed)
+        const videos = await prisma.scrapedVideo.findMany({
+            where: {
+                commentPosted: true,
+                commentId: { not: null },
+                commentStatus: { notIn: ['completed', 'failed'] } // Check pending or running
+            }
+        });
+
+        if (videos.length === 0) {
+            return { success: true, pendingCount: 0, completedCount: 0, results: [] };
+        }
+
+        let completedCount = 0;
+        const results = [];
+
+        for (const video of videos) {
+            if (!video.commentId) continue;
+
+            const statusRes = await getCommentStatus(video.commentId);
+            let newStatus = video.commentStatus;
+            let commentUrl = video.commentUrl;
+            let errorMsg = null;
+
+            if (statusRes.ok) {
+                newStatus = statusRes.status || 'pending';
+                if (newStatus === 'completed' && statusRes.commentUrl) {
+                    commentUrl = statusRes.commentUrl;
+                    completedCount++;
+                } else if (newStatus === 'failed') {
+                    errorMsg = statusRes.error;
+                }
+
+                // Update DB
+                await prisma.scrapedVideo.update({
+                    where: { id: video.id },
+                    data: {
+                        commentStatus: newStatus,
+                        commentUrl: commentUrl
+                    }
+                });
+
+                results.push({
+                    id: video.id,
+                    status: newStatus,
+                    commentUrl: commentUrl,
+                    error: errorMsg
+                });
+            } else {
+                results.push({
+                    id: video.id,
+                    status: 'error_check',
+                    error: statusRes.error
+                });
+            }
+        }
+
+        revalidatePath('/');
+        return {
+            success: true,
+            pendingCount: videos.length - completedCount,
+            completedCount,
+            results
+        };
+
+    } catch (error) {
+        console.error('Batch status check error:', error);
+        return { error: 'Batch status check failed' };
     }
 }
